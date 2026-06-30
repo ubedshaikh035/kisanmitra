@@ -1,40 +1,5 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pickle
-import numpy as np
-import os
-import json
-import requests
-
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-with open("crop_recommendation_model.pkl", "rb") as f:
-    model = pickle.load(f)
-
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-
-@app.route("/predict", methods=["GET", "POST", "OPTIONS"])
-def predict():
-    if request.method == "OPTIONS":
-        response = jsonify({})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        return response, 200
-    data = request.get_json(force=True)
-    features = [[
-        float(data["N"]), float(data["P"]), float(data["K"]),
-        float(data["temperature"]), float(data["humidity"]),
-        float(data["ph"]), float(data["rainfall"])
-    ]]
-    prediction = model.predict(features)[0]
-    response = jsonify({"crop": prediction})
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
-
-@app.route("/plant-info", methods=["GET", "POST", "OPTIONS"])
-def plant_info():
+@app.route("/ai", methods=["GET", "POST", "OPTIONS"])
+def ai_endpoint():
     if request.method == "OPTIONS":
         response = jsonify({})
         response.headers.add("Access-Control-Allow-Origin", "*")
@@ -43,16 +8,48 @@ def plant_info():
         return response, 200
 
     data = request.get_json(force=True)
-    crop_name = data.get("crop", "")
+    task = data.get("task", "")
+    context = data.get("context", {})
 
-    prompt = f"""Give me information about growing the crop "{crop_name}" as a farmer would need.
-Return ONLY valid JSON, no markdown, no backticks, in exactly this format:
+    prompts = {
+        # context: { "crop": "rice" }  <- from your crop prediction model
+        "plant_info": f"""Give farming info about the crop "{context.get('crop', '')}".
+Return ONLY valid JSON, no markdown:
 {{
-  "description": "2-3 sentence description of the crop",
+  "description": "2-3 sentence description",
   "uses": "2-3 sentence summary of common uses",
-  "growing_tips": "3-4 sentence practical growing tips covering soil, water, and climate",
-  "ideal_conditions": "short summary of ideal temperature, soil pH, and rainfall"
-}}"""
+  "growing_tips": "3-4 sentences on soil, water, climate",
+  "ideal_conditions": "ideal temperature, soil pH, rainfall"
+}}""",
+
+        # context: { "crop": "rice", "fertilizer": "Urea" }  <- from your fertilizer prediction model
+        "fertilizer_info": f"""Explain the fertilizer "{context.get('fertilizer', '')}"
+recommended for the crop "{context.get('crop', '')}".
+Return ONLY valid JSON, no markdown:
+{{
+  "fertilizer_name": "{context.get('fertilizer', '')}",
+  "why_recommended": "2-3 sentences explaining why this fits the crop/soil",
+  "application_tips": "2-3 sentences on how/when/how much to apply",
+  "warnings": "any precautions or risks of overuse"
+}}""",
+
+        # context: { "crop": "tomato", "disease": "Early Blight" }  <- from your disease detection model
+        "disease_info": f"""Explain the plant disease "{context.get('disease', '')}"
+affecting the crop "{context.get('crop', '')}".
+Return ONLY valid JSON, no markdown:
+{{
+  "disease_name": "{context.get('disease', '')}",
+  "description": "2-3 sentences about the disease and its symptoms",
+  "treatment": "3-4 sentences on how to treat it",
+  "prevention": "2-3 sentences on preventing it in future"
+}}""",
+    }
+
+    prompt = prompts.get(task)
+    if not prompt:
+        response = jsonify({"error": f"Unknown task: {task}"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 400
 
     try:
         res = requests.post(
@@ -73,17 +70,8 @@ Return ONLY valid JSON, no markdown, no backticks, in exactly this format:
         text = text.replace("```json", "").replace("```", "").strip()
         info = json.loads(text)
     except Exception as e:
-        info = {
-            "description": "Information unavailable right now.",
-            "uses": "",
-            "growing_tips": "",
-            "ideal_conditions": "",
-            "error": str(e)
-        }
+        info = {"error": str(e)}
 
     response = jsonify(info)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
