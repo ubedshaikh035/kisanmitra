@@ -13,7 +13,7 @@ with open("crop_recommendation_model.pkl", "rb") as f:
     model = pickle.load(f)
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+gemini_model = gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
 @app.route("/predict", methods=["GET", "POST", "OPTIONS"])
 def predict():
