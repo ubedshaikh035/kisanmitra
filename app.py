@@ -50,18 +50,19 @@ def fertilizer_predict():
         response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
         return response, 200
     data = request.get_json(force=True)
-    features = [[
-        float(data["Temperature"]),
-        float(data["Moisture"]),
-        float(data["Rainfall"]),
-        float(data["PH"]),
-        float(data["Nitrogen"]),
-        float(data["Phosphorous"]),
-        float(data["Potassium"]),
-        float(data["Carbon"]),
-        data["Soil"],
-        data["Crop"]
-    ]]
+    import pandas as pd
+    features = pd.DataFrame([{
+        "Temperature": float(data["Temperature"]),
+        "Moisture": float(data["Moisture"]),
+        "Rainfall": float(data["Rainfall"]),
+        "PH": float(data["PH"]),
+        "Nitrogen": float(data["Nitrogen"]),
+        "Phosphorous": float(data["Phosphorous"]),
+        "Potassium": float(data["Potassium"]),
+        "Carbon": float(data["Carbon"]),
+        "Soil": data["Soil"],
+        "Crop": data["Crop"]
+    }])
     prediction_encoded = fertilizer_model.predict(features)[0]
     prediction = label_encoder.inverse_transform([prediction_encoded])[0]
     response = jsonify({"fertilizer": prediction})
