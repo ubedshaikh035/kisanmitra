@@ -62,7 +62,7 @@ Return ONLY valid JSON, no markdown, no backticks, in exactly this format:
                 "Content-Type": "application/json"
             },
             json={
-                "model": "qwen/qwen-2.5-72b-instruct:free",
+                "model": "openrouter/free",
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
