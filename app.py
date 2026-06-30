@@ -9,8 +9,16 @@ import requests
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Load crop model
 with open("crop_recommendation_model.pkl", "rb") as f:
-    model = pickle.load(f)
+    crop_model = pickle.load(f)
+
+# Load fertilizer model and label encoder
+with open("fertilizer_recommendation_model.pkl", "rb") as f:
+    fertilizer_model = pickle.load(f)
+
+with open("label_encoder.pkl", "rb") as f:
+    label_encoder = pickle.load(f)
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
@@ -28,8 +36,35 @@ def predict():
         float(data["temperature"]), float(data["humidity"]),
         float(data["ph"]), float(data["rainfall"])
     ]]
-    prediction = model.predict(features)[0]
+    prediction = crop_model.predict(features)[0]
     response = jsonify({"crop": prediction})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+@app.route("/fertilizer-predict", methods=["GET", "POST", "OPTIONS"])
+def fertilizer_predict():
+    if request.method == "OPTIONS":
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
+    data = request.get_json(force=True)
+    features = [[
+        float(data["Temperature"]),
+        float(data["Moisture"]),
+        float(data["Rainfall"]),
+        float(data["PH"]),
+        float(data["Nitrogen"]),
+        float(data["Phosphorous"]),
+        float(data["Potassium"]),
+        float(data["Carbon"]),
+        data["Soil"],
+        data["Crop"]
+    ]]
+    prediction_encoded = fertilizer_model.predict(features)[0]
+    prediction = label_encoder.inverse_transform([prediction_encoded])[0]
+    response = jsonify({"fertilizer": prediction})
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
