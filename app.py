@@ -5,6 +5,7 @@ import numpy as np
 import os
 import json
 import requests
+import pandas as pd  
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
