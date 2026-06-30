@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import os
 import json
-import google.generativeai as genai
+import requests
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -12,8 +12,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 with open("crop_recommendation_model.pkl", "rb") as f:
     model = pickle.load(f)
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-gemini_model = gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 @app.route("/predict", methods=["GET", "POST", "OPTIONS"])
 def predict():
@@ -56,8 +55,19 @@ Return ONLY valid JSON, no markdown, no backticks, in exactly this format:
 }}"""
 
     try:
-        result = gemini_model.generate_content(prompt)
-        text = result.text.strip()
+        res = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "meta-llama/llama-3.1-8b-instruct:free",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+        )
+        result = res.json()
+        text = result["choices"][0]["message"]["content"].strip()
         text = text.replace("```json", "").replace("```", "").strip()
         info = json.loads(text)
     except Exception as e:
