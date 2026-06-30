@@ -98,4 +98,15 @@ Return ONLY valid JSON, no markdown:
         result = res.json()
         if "choices" not in result:
             raise Exception(f"OpenRouter response: {json.dumps(result)}")
-        text =
+        text = result["choices"][0]["message"]["content"].strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+        info = json.loads(text)
+    except Exception as e:
+        info = {"error": str(e)}
+
+    response = jsonify(info)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
