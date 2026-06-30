@@ -67,6 +67,8 @@ Return ONLY valid JSON, no markdown, no backticks, in exactly this format:
             }
         )
         result = res.json()
+        if "choices" not in result:
+            raise Exception(f"OpenRouter response: {json.dumps(result)}")
         text = result["choices"][0]["message"]["content"].strip()
         text = text.replace("```json", "").replace("```", "").strip()
         info = json.loads(text)
