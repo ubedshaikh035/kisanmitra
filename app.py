@@ -144,6 +144,65 @@ Return ONLY valid JSON, no markdown:
     response = jsonify(info)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
+@app.route("/nearby-markets", methods=["GET", "POST", "OPTIONS"])
+def nearby_markets():
+    if request.method == "OPTIONS":
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response, 200
+
+    data = request.get_json(force=True)
+    city = data.get("city", "")
+    api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+
+    try:
+        # Geocode city
+        geocode_res = requests.get(
+            "https://maps.googleapis.com/maps/api/geocode/json",
+            params={"address": city, "key": api_key}
+        )
+        geocode_data = geocode_res.json()
+
+        if not geocode_data["results"]:
+            response = jsonify({"error": "City not found"})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response
+
+        lat = geocode_data["results"][0]["geometry"]["location"]["lat"]
+        lng = geocode_data["results"][0]["geometry"]["location"]["lng"]
+
+        # Find nearby markets
+        places_res = requests.get(
+            "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
+            params={
+                "location": f"{lat},{lng}",
+                "radius": 10000,
+                "keyword": "farming market agriculture mandi",
+                "key": api_key
+            }
+        )
+        places_data = places_res.json()
+        results = places_data.get("results", [])
+
+        if not results:
+            response = jsonify({"name": "No markets found nearby", "address": "Try a different city"})
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response
+
+        market = results[0]
+        response = jsonify({
+            "name": market["name"],
+            "address": market.get("vicinity", "Address not available")
+        })
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+
+    except Exception as e:
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
