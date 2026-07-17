@@ -203,6 +203,45 @@ def nearby_markets():
         response = jsonify({"error": str(e)})
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response
+@app.route("/agri-news", methods=["GET", "POST", "OPTIONS"])
 
+def agri_news():
+    if request.method == "OPTIONS":
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        return response, 200
+
+    # Accept query either as GET param or POST body, matching FlutterFlow flexibility
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        query = data.get("q", "agriculture")
+    else:
+        query = request.args.get("q", "agriculture")
+
+    api_key = os.environ.get("GNEWS_API_KEY")
+
+    try:
+        gnews_res = requests.get(
+            "https://gnews.io/api/v4/search",
+            params={
+                "q": query,
+                "lang": "en",
+                "max": 10,
+                "apikey": api_key
+            },
+            timeout=10
+        )
+        gnews_data = gnews_res.json()
+        response = jsonify(gnews_data)
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+
+    except Exception as e:
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
